@@ -12,21 +12,19 @@ module.exports = async (req, res) => {
 
   const apiKey = (process.env.DEEPGRAM_KEY || "").trim();
   if (!apiKey) {
-    return res.status(500).json({ error: "Falta la variable DEEPGRAM_KEY en Vercel (recuerda hacer Redeploy)" });
+    return res.status(500).json({ error: "Falta la variable DEEPGRAM_KEY en Vercel" });
   }
 
   try {
-    const response = await fetch(
-      `https://deepgram.com{voz}`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Token ${apiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ text: texto })
-      }
-    );
+    const url = "https://deepgram.com" + encodeURIComponent(voz);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": "Token " + apiKey,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ text: texto })
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
