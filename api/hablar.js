@@ -6,9 +6,14 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const texto = req.query.texto || (req.body && req.body.texto);
-  const voz = req.query.voz || "aura-2-alvaro-es"; // También: aura-2-diana-es o aura-2-carina-es
+  const voz = req.query.voz || "aura-2-nestor-es";
 
   if (!texto) return res.status(400).json({ error: "Falta el texto" });
+
+  const apiKey = (process.env.DEEPGRAM_KEY || "").trim();
+  if (!apiKey) {
+    return res.status(500).json({ error: "Falta la variable DEEPGRAM_KEY en Vercel (recuerda hacer Redeploy)" });
+  }
 
   try {
     const response = await fetch(
@@ -16,7 +21,7 @@ module.exports = async (req, res) => {
       {
         method: "POST",
         headers: {
-          "Authorization": `Token ${process.env.DEEPGRAM_KEY}`,
+          "Authorization": `Token ${apiKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ text: texto })
@@ -32,6 +37,9 @@ module.exports = async (req, res) => {
     res.setHeader("Content-Type", "audio/mpeg");
     return res.status(200).send(audioBuffer);
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: error.message,
+      causa: error.cause ? String(error.cause) : "sin detalle"
+    });
   }
 };
