@@ -2,6 +2,6 @@
   "name": "tts-gratis",
   "version": "1.0.0",
   "dependencies": {
-    "msedge-tts": "^1.0.4"
+    "edge-tts-universal": "^1.0.2"
   }
 }
