@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const url = "https://deepgram.com" + encodeURIComponent(voz);
+    const url = "https://api.deepgram.com/v1/speak?model=" + encodeURIComponent(voz);
     const response = await fetch(url, {
       method: "POST",
       headers: {
