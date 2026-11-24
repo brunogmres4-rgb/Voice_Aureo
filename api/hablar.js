@@ -6,7 +6,7 @@ module.exports = async (req, res) => {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const texto = req.query.texto || (req.body && req.body.texto);
-  const voz = req.query.voz || "aura-2-nestor-es";
+  const voz = req.query.voz || "aura-2-javier-es";
 
   if (!texto) return res.status(400).json({ error: "Falta el texto" });
 
