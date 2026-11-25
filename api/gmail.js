@@ -7,7 +7,7 @@
 // Conectar: abre en el NAVEGADOR (no en el WebView) /api/gmail?accion=conectar&t=TU_TOKEN
 const crypto = require("crypto");
 
-const SCOPE = "https://www.googleapis.com/auth/gmail.send";
+const SCOPE = "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly";
 const hdr = r => {
   r.setHeader("Access-Control-Allow-Origin", "*");
   r.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
