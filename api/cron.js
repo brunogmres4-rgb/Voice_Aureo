@@ -1,6 +1,6 @@
 // Trabajador autónomo: envía lo aprobado, prepara seguimientos y busca prospectos.
 // Variables: DATABASE_URL, APP_TOKEN, GEMINI_API_KEY, CRON_SECRET (opcional), BASE_URL (opcional), GEMINI_MODEL (opcional)
-const{sql,sqlb,SCHEMA}=require("./_neon.js"),{respuestas}=require("./_gmail.js");
+const{sql,sqlb,SCHEMA}=require("./_neon.js"),{respuestas}=require("./_leer.js");
 const GM=process.env.GEMINI_MODEL||"gemini-3.5-flash-lite",EM=/^[^\s@<>,;"']+@[^\s@<>,;"']+\.[^\s@<>,;"']+$/,
 BAJA="\n\n—\nSi prefieres no recibir más correos míos, responde BAJA y no volveré a escribirte.",
 TD="(select count(*) from bandeja where estado='enviado' and (enviado at time zone 'Europe/Madrid')::date=(now() at time zone 'Europe/Madrid')::date)";
@@ -15,7 +15,7 @@ Datos del prospecto: empresa ${p.empresa}; contacto ${p.contacto||"desconocido"}
 Reglas: usa SOLO estos datos, no inventes reseñas, cifras, noticias ni casos de éxito; máximo 110 palabras; una sola pregunta final; empieza con "Hola, Nombre:" (o "Hola:" si no hay nombre); termina con "Un saludo,\nMartina"; sin markdown.
 Devuelve SOLO JSON: {"a":"asunto breve","c":"cuerpo completo","e":["hasta 3 motivos de por qué este mensaje, basados en los datos"],"s":afinidad entera entre 40 y 99}`);
   const c=String(o.c||"").trim();if(!c)throw new Error("Gemini no devolvió el borrador");
-  await sql("insert into bandeja(prospecto_id,tipo,asunto,cuerpo,evidencias) values($1,$2,$3,$4,$5)",[p.id,tipo,String(o.a||"Una idea para "+p.empresa).slice(0,150),c+BAJA,JSON.stringify((Array.isArray(o.e)?o.e:[]).slice(0,3).map(String))]);
+  await sql("insert into bandeja(prospecto_id,tipo,asunto,cuerpo,evidencias) values($1,$2,$3,$4,$5)",[p.id,tipo,String(o.a||"Una idea para "+p.empresa).replace(/\s+/g," ").trim().slice(0,150),c+BAJA,JSON.stringify((Array.isArray(o.e)?o.e:[]).slice(0,3).map(String))]);
   await sql("update prospectos set afinidad=$1 where id=$2",[Math.max(40,Math.min(99,Math.round(+o.s||70))),p.id])}
 const base=()=>process.env.BASE_URL||"https://"+process.env.VERCEL_PROJECT_PRODUCTION_URL;
 async function enviar(para,asunto,texto){const r=await fetch(base()+"/api/gmail",{method:"POST",headers:{"Content-Type":"application/json","x-app-token":process.env.APP_TOKEN||""},body:JSON.stringify({para,asunto,texto})});if(!r.ok)throw new Error("Gmail respondió "+r.status)}
