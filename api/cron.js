@@ -43,18 +43,20 @@ async function resumen(cfg){const to=process.env.OWNER_EMAIL,hoy=new Date().toLo
   await sql("insert into config(k,v) values('resumen',$1) on conflict(k) do update set v=excluded.v",[hoy])}
 async function buscar(f,vivo,out){
   await sql("update fuentes set ultima=now() where id=$1",[f.id]);
-  const a=await gj(`Eres un investigador comercial. El usuario busca clientes potenciales con esta descripción: "${f.texto}".
+  let web=1,a;try{a=await gj(`Eres un investigador comercial. El usuario busca clientes potenciales con esta descripción: "${f.texto}".
 Usa la búsqueda de Google para encontrar hasta 6 empresas o profesionales REALES y ACTIVOS que encajen como CLIENTE POTENCIAL: gente que podría comprar lo que ofrece el usuario o que ha mostrado esa necesidad. Interpreta la descripción como "quién necesita o compraría esto", no como el tema en sí.
 Ejemplo: si la descripción es "gente que quiera dibujos", busca quien encarga o necesita ilustraciones (editoriales, marcas, agencias, negocios que buscan ilustradores, particulares que los piden), NO galerías, museos, escuelas de arte ni tiendas de material.
 Excluye siempre museos, galerías, administraciones públicas, universidades, medios de comunicación, directorios, redes sociales, marketplaces y cualquier organización que solo trate el tema sin ser compradora.
 Cada resultado DEBE tener un correo electrónico público que hayas visto escrito en una página web (su web, su ficha o su perfil). Si no encuentras correo, descarta ese resultado. No inventes ni deduzcas correos.
 Devuelve SOLO un array JSON de objetos con las claves: empresa, contacto (la persona si aparece, si no vacío), cargo, ciudad, email, fuente (URL exacta de la página donde aparece el correo), nota (una frase: por qué encaja como cliente, con un dato concreto y verificable).
-Si no encuentras ninguno que cumpla todo, devuelve [].`,1);
+Si no encuentras ninguno que cumpla todo, devuelve [].`,1)}catch(e){if(!/429/.test(e.message))throw e;web=0;a=await gj(`Eres un investigador comercial. El usuario busca clientes potenciales con esta descripción: "${f.texto}".
+No tienes búsqueda en internet: usa solo lo que sabes con seguridad. Sugiere hasta 6 empresas o profesionales REALES que conozcas y que encajen como CLIENTE POTENCIAL: quien necesitaría o compraría lo que ofrece el usuario, no organizaciones que solo traten el tema. Excluye museos, galerías, administraciones públicas, universidades, medios de comunicación, directorios y redes sociales. Si no conoces negocios reales que encajen, devuelve [].
+Devuelve SOLO un array JSON de objetos con las claves: empresa, contacto (vacío salvo que lo conozcas con seguridad), cargo, ciudad, web (solo si la conoces con seguridad), nota (una frase: por qué encaja como cliente). No incluyas correos.`,0)}
   if(!Array.isArray(a))return;let n=0;
-  for(const x of a.slice(0,8)){if(!x||!x.empresa)continue;const em=String(x.email||"").trim().toLowerCase(),s=v=>v?String(v).slice(0,200):null;if(!EM.test(em)||!x.fuente)continue;
-    const[p]=await sql("insert into prospectos(empresa,contacto,cargo,ciudad,email,nota,origen) values($1,$2,$3,$4,$5,$6,$7) on conflict do nothing returning *",[s(x.empresa),s(x.contacto),s(x.cargo),s(x.ciudad),EM.test(em)?em:null,s([x.nota,"Fuente: "+x.fuente].filter(Boolean).join(" · ")),f.tipo]);
+  for(const x of a.slice(0,8)){if(!x||!x.empresa)continue;const em=web?String(x.email||"").trim().toLowerCase():"",s=v=>v?String(v).slice(0,200):null;if(web&&(!EM.test(em)||!x.fuente))continue;
+    const[p]=await sql("insert into prospectos(empresa,contacto,cargo,ciudad,email,nota,origen) values($1,$2,$3,$4,$5,$6,$7) on conflict do nothing returning *",[s(x.empresa),s(x.contacto),s(x.cargo),s(x.ciudad),web?em:null,s((web?[x.nota,"Fuente: "+x.fuente]:["Sin verificar",x.nota,x.web&&"Web: "+x.web]).filter(Boolean).join(" · ")),f.tipo]);
     if(!p)continue;n++;out.nuevos++;if(p.email&&vivo()){try{await redactar(p,"Correo inicial");out.borradores++}catch(e){out.errores.push(e.message)}}}
-  await sql("update fuentes set hallazgos=hallazgos+$1 where id=$2",[n,f.id]);await sql("insert into registro(texto) values($1)",[`Radar (automático): ${n} prospectos nuevos de «${f.texto}»`])}
+  await sql("update fuentes set hallazgos=hallazgos+$1 where id=$2",[n,f.id]);await sql("insert into registro(texto) values($1)",[`Radar (automático): ${n} prospectos nuevos de «${f.texto}»${web?"":" (sin búsqueda web, sin correo)"}`])}
 module.exports=async(req,res)=>{
   const a=req.headers.authorization||"";
   if(!((process.env.CRON_SECRET&&a==="Bearer "+process.env.CRON_SECRET)||(process.env.APP_TOKEN&&req.headers["x-app-token"]===process.env.APP_TOKEN)))return res.status(401).json({error:"No autorizado"});
