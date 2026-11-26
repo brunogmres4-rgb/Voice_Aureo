@@ -10,7 +10,7 @@
 const { MsEdgeTTS, OUTPUT_FORMAT } = require("msedge-tts");
 
 const VOZ = process.env.VOZ || "es-ES-AlvaroNeural";
-const TONO = process.env.TONO || "-12Hz";
+const TONO = process.env.TONO || "-11Hz";
 const RITMO = process.env.RITMO || "+0%";
 const DG = process.env.DEEPGRAM_API_KEY || process.env.DEEPGRAM_KEY || "";
 const esc = t => t.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]));
