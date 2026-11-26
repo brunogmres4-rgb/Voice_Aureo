@@ -43,10 +43,16 @@ async function resumen(cfg){const to=process.env.OWNER_EMAIL,hoy=new Date().toLo
   await sql("insert into config(k,v) values('resumen',$1) on conflict(k) do update set v=excluded.v",[hoy])}
 async function buscar(f,vivo,out){
   await sql("update fuentes set ultima=now() where id=$1",[f.id]);
-  const a=await gj(`Busca en Google hasta 6 negocios reales y activos para esta búsqueda: "${f.texto}". Incluye solo datos que figuren publicados en sus páginas; si un dato no aparece, déjalo vacío. No inventes nombres ni correos. Devuelve SOLO un array JSON de objetos con las claves empresa, contacto, cargo, ciudad, email, nota (una frase con un dato verificable del negocio).`,1);
+  const a=await gj(`Eres un investigador comercial. El usuario busca clientes potenciales con esta descripción: "${f.texto}".
+Usa la búsqueda de Google para encontrar hasta 6 empresas o profesionales REALES y ACTIVOS que encajen como CLIENTE POTENCIAL: gente que podría comprar lo que ofrece el usuario o que ha mostrado esa necesidad. Interpreta la descripción como "quién necesita o compraría esto", no como el tema en sí.
+Ejemplo: si la descripción es "gente que quiera dibujos", busca quien encarga o necesita ilustraciones (editoriales, marcas, agencias, negocios que buscan ilustradores, particulares que los piden), NO galerías, museos, escuelas de arte ni tiendas de material.
+Excluye siempre museos, galerías, administraciones públicas, universidades, medios de comunicación, directorios, redes sociales, marketplaces y cualquier organización que solo trate el tema sin ser compradora.
+Cada resultado DEBE tener un correo electrónico público que hayas visto escrito en una página web (su web, su ficha o su perfil). Si no encuentras correo, descarta ese resultado. No inventes ni deduzcas correos.
+Devuelve SOLO un array JSON de objetos con las claves: empresa, contacto (la persona si aparece, si no vacío), cargo, ciudad, email, fuente (URL exacta de la página donde aparece el correo), nota (una frase: por qué encaja como cliente, con un dato concreto y verificable).
+Si no encuentras ninguno que cumpla todo, devuelve [].`,1);
   if(!Array.isArray(a))return;let n=0;
-  for(const x of a.slice(0,8)){if(!x||!x.empresa)continue;const em=String(x.email||"").trim().toLowerCase(),s=v=>v?String(v).slice(0,200):null;
-    const[p]=await sql("insert into prospectos(empresa,contacto,cargo,ciudad,email,nota,origen) values($1,$2,$3,$4,$5,$6,$7) on conflict do nothing returning *",[s(x.empresa),s(x.contacto),s(x.cargo),s(x.ciudad),EM.test(em)?em:null,s(x.nota),f.tipo]);
+  for(const x of a.slice(0,8)){if(!x||!x.empresa)continue;const em=String(x.email||"").trim().toLowerCase(),s=v=>v?String(v).slice(0,200):null;if(!EM.test(em)||!x.fuente)continue;
+    const[p]=await sql("insert into prospectos(empresa,contacto,cargo,ciudad,email,nota,origen) values($1,$2,$3,$4,$5,$6,$7) on conflict do nothing returning *",[s(x.empresa),s(x.contacto),s(x.cargo),s(x.ciudad),EM.test(em)?em:null,s([x.nota,"Fuente: "+x.fuente].filter(Boolean).join(" · ")),f.tipo]);
     if(!p)continue;n++;out.nuevos++;if(p.email&&vivo()){try{await redactar(p,"Correo inicial");out.borradores++}catch(e){out.errores.push(e.message)}}}
   await sql("update fuentes set hallazgos=hallazgos+$1 where id=$2",[n,f.id]);await sql("insert into registro(texto) values($1)",[`Radar (automático): ${n} prospectos nuevos de «${f.texto}»`])}
 module.exports=async(req,res)=>{
@@ -69,5 +75,5 @@ module.exports=async(req,res)=>{
     for(const p of rea){if(!vivo())break;try{await redactar(p,"Reactivación");out.borradores++}catch(e){out.errores.push(e.message);break}}
     if(h>=9&&h<19)try{await resumen(cfg)}catch(e){out.errores.push(e.message)}
     if(vivo()){const[f]=await sql("select * from fuentes where activa and tipo='Búsqueda web' and (ultima is null or ultima<now()-interval '12 hours') order by ultima nulls first limit 1");
-      if(f)try{await buscar(f,vivo,out)}catch(e){out.errores.push(e.message)}}
+      if(f)try{await buscar(f,vivo,out)}catch(e){out.errores.push(e.message);await sql("insert into registro(texto) values($1)",["Radar (automático): error en «"+f.texto+"»: "+e.message]).catch(()=>{})}}
     res.json(out)}catch(e){res.status(500).json({error:e.message,...out})}};
